@@ -31,7 +31,7 @@ enum XZYRefreshState {
 class XZYRefreshComponent: UIView {
 
     // 初始化并设置 默认是 普通状态
-    let state = XZYRefreshState.XZYRefreshStateIdle
+    var state = XZYRefreshState.XZYRefreshStateIdle
     
     /// 父控件
     var scrollView = UIScrollView()
@@ -43,7 +43,6 @@ class XZYRefreshComponent: UIView {
     
     /// 回调对象
     var refreshingTarget = #selector(voidObject) as AnyObject
-    
     
     /// 回调方法
     var refreshingAction:Selector = #selector(voidMethods)
@@ -188,20 +187,49 @@ extension XZYRefreshComponent{
 }
 // MARK: -公共方法 设置回调对象和回调方法
 extension XZYRefreshComponent{
-
-
+    
     /// 设置回调对象和回调方法
     ///
     /// - Parameters:
     ///   - target: target
     ///   - action: action
-    func setRefreshingTarget(target:AnyObject?,action:Selector) {
+    func setRefreshingTarget(target:AnyObject,action:Selector) {
         
+        refreshingTarget = target
+        refreshingAction = action
+    }
+    
+    var setState:XZYRefreshState?{
+        
+        get{
+            return XZYRefreshState.XZYRefreshStateIdle
+            
+        }
+        set(newState){
+            state = newState!
+            
+            ///加入主队列的目的是等setState:方法调用完毕、设置完文字后再去布局子控件
+            DispatchQueue.main.asyncAfter(deadline: DispatchTime.now()) {
+                self.setNeedsLayout()
+            }
+        }
     }
 }
 
-
-
+// MARK: - 刷新状态控制
+extension XZYRefreshComponent{
+    
+//    var pullingPercent:CGFloat
+    
+    /// 进入刷新状态
+    func beginRefreshing() {
+        
+       UIView.animate(withDuration: XZYRefreshFastAnimationDuration) { 
+            self.alpha = 1.0
+        }
+        
+    }
+}
 
 
 

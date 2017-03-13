@@ -8,6 +8,12 @@
 
 import Foundation
 
+let XZYRefreshLabelLeftInset:Double = 25
+let XZYRefreshHeaderHeight:Double = 54.0
+let XZYRefreshFooterHeight:Double = 44.0
+let XZYRefreshFastAnimationDuration:Double = 0.25
+let XZYRefreshSlowAnimationDuration:Double = 0.4
+
 let XZYRefreshKeyPathContentOffset = "contentOffset"
 let XZYRefreshKeyPathContentInset = "contentInset"
 let XZYRefreshKeyPathContentSize = "contentSize"

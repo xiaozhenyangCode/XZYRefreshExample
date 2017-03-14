@@ -8,7 +8,7 @@
 
 import Foundation
 
-let XZYRefreshLabelLeftInset:Double = 25
+let XZYRefreshLabelLeftInset:Double = 25.0
 let XZYRefreshHeaderHeight:Double = 54.0
 let XZYRefreshFooterHeight:Double = 44.0
 let XZYRefreshFastAnimationDuration:Double = 0.25

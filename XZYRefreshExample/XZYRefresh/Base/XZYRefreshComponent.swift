@@ -10,28 +10,28 @@ import UIKit
 
 /// 刷新控件的状态
 ///
-/// - XZYRefreshStateIdle: 普通闲置状态
-/// - XZYRefreshStatePulling: 松开就可以进行刷新的状态
-/// - XZYRefreshStateRefreshing: XZYRefreshStateRefreshing
-/// - XZYRefreshStateWillRefresh: 即将刷新的状态
-/// - XZYRefreshStateNoMoreData: 所有数据加载完毕，没有更多的数据了
+/// - idle: 普通闲置状态
+/// - pulling: 松开就可以进行刷新的状态
+/// - refreshing: XZYRefreshStateRefreshing
+/// - willRefresh: 即将刷新的状态
+/// - noMoreData: 所有数据加载完毕，没有更多的数据了
 enum XZYRefreshState {
     /// 普通闲置状态
-   case XZYRefreshStateIdle
+   case idle
    /// 松开就可以进行刷新的状态
-   case XZYRefreshStatePulling
+   case pulling
    ///  正在刷新中的状态
-   case XZYRefreshStateRefreshing
+   case refreshing
    /// 即将刷新的状态
-   case XZYRefreshStateWillRefresh
+   case willRefresh
    /// 所有数据加载完毕，没有更多的数据了
-   case XZYRefreshStateNoMoreData
+   case noMoreData
     
 }
 class XZYRefreshComponent: UIView {
 
     // 初始化并设置 默认是 普通状态
-    var state = XZYRefreshState.XZYRefreshStateIdle
+    var state = XZYRefreshState.idle
     
     /// 父控件
     var scrollView = UIScrollView()
@@ -47,6 +47,16 @@ class XZYRefreshComponent: UIView {
     /// 回调方法
     var refreshingAction:Selector = #selector(voidMethods)
     
+    ///进入刷新状态的回调
+    var xzyRefreshingBlock: (()->())?
+    
+    ///开始刷新后的回调(进入刷新状态后的回调)
+    var xzyBeginRefreshingCompletionBlock : (()->())?
+    
+    ///结束刷新后的回调
+    var xzyEndRefreshingCompletionBlock : (()->())?
+    
+   
     override  init(frame: CGRect) {
         super.init(frame: frame)
         
@@ -71,7 +81,9 @@ extension XZYRefreshComponent{
     }
 
     override func layoutSubviews() {
+        placeSubviews()
         
+        super.layoutSubviews()
     }
     
     /// 摆放子控件frame
@@ -122,6 +134,15 @@ extension XZYRefreshComponent{
         return refreshingTarget
     }
     
+    override func draw(_ rect: CGRect) {
+        
+        super.draw(rect)
+        
+        if state == XZYRefreshState.willRefresh {
+            // 预防view还没显示出来就调用了beginRefreshing
+            state = XZYRefreshState.refreshing
+        }
+    }
 }
 
 // MARK: - KVO监听
@@ -138,7 +159,7 @@ extension XZYRefreshComponent{
 
     }
 
-    /// 添加监听
+    /// 移除监听
     func removeObservers(){
         
         self.superview?.removeObserver(self, forKeyPath: XZYRefreshKeyPathContentOffset)
@@ -202,7 +223,7 @@ extension XZYRefreshComponent{
     var setState:XZYRefreshState?{
         
         get{
-            return XZYRefreshState.XZYRefreshStateIdle
+            return XZYRefreshState.idle
             
         }
         set(newState){
@@ -219,17 +240,146 @@ extension XZYRefreshComponent{
 // MARK: - 刷新状态控制
 extension XZYRefreshComponent{
     
-//    var pullingPercent:CGFloat
-    
     /// 进入刷新状态
     func beginRefreshing() {
         
        UIView.animate(withDuration: XZYRefreshFastAnimationDuration) { 
             self.alpha = 1.0
         }
+        pullingPercent = 1.0
+        
+        /// 只要正在刷新，就完全显示
+        if (window != nil) {
+            state = XZYRefreshState.refreshing
+        }else{
+            ///预防正在刷新中时，调用本方法使得header inset回置失败
+            if self.state != XZYRefreshState.refreshing {
+                self.state = XZYRefreshState.willRefresh;
+                /// 刷新(预防从另一个控制器回到这个控制器的情况，回来要重新刷新一下)
+                setNeedsDisplay()
+            }
+        }
+    }
+    
+    func beginRefreshingWithCompletionBlock(completionBlock: (()->())?)  {
+        
+        self.xzyBeginRefreshingCompletionBlock = completionBlock
+        
+        beginRefreshing()
+    }
+    
+    ///结束刷新状态
+    func endRefreshing() {
+        state = XZYRefreshState.idle
+    }
+    
+    func endRefreshingWithCompletionBlock(completionBlock: (()->())?)  {
+        
+        self.xzyEndRefreshingCompletionBlock = completionBlock
+        
+        beginRefreshing()
+    }
+    
+    ///是否正在刷新
+    var isRefreshing:Bool{
+        
+        get{
+            return state == XZYRefreshState.refreshing || state == XZYRefreshState.willRefresh
+        }
+    }
+    
+    ///根据拖拽比例自动切换透明度
+    var autoChangeAlpha:Bool{
+        get{
+            return self.autoChangeAlpha
+        }
+        
+        set(newVal){
+            self.autoChangeAlpha = newVal
+        }
+    }
+      ///根据拖拽比例自动切换透明度
+    var automaticallyChangeAlpha:Bool{
+        get{
+            return self.automaticallyChangeAlpha
+        }
+        
+        set(newVal){
+            self.automaticallyChangeAlpha = newVal
+            
+            if automaticallyChangeAlpha {
+                alpha = pullingPercent
+            }else{
+                alpha = 1.0
+            }
+        }
+    }
+    
+    ///根据拖拽进度设置透明度
+    var pullingPercent :CGFloat{
+    
+        get{
+            return self.pullingPercent
+        }
+        set(newVal){
+            
+            self.pullingPercent = newVal
+            
+            if self.isRefreshing {return}
+            
+            if self.automaticallyChangeAlpha {
+                
+                self.alpha = newVal
+            }
+        }
         
     }
 }
+
+// MARK: - 内部方法
+extension XZYRefreshComponent{
+
+    /// 触发回调（交给子类去调用）
+    func executeRefreshingCallback() {
+        
+        DispatchQueue.main.asyncAfter(deadline: DispatchTime.now()) {
+
+            if (self.xzyRefreshingBlock != nil){
+                self.xzyRefreshingBlock!()
+            }
+            
+            /// FIST
+            if self.refreshingTarget .responds(to: self.refreshingAction){
+            
+                
+            
+            }
+            if (self.xzyBeginRefreshingCompletionBlock != nil){
+                self.xzyBeginRefreshingCompletionBlock!()
+            }
+
+        }
+    }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
